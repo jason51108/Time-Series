@@ -9,16 +9,17 @@ import os
 import time
 import warnings
 import numpy as np
+import matplotlib.pyplot as plt
 
 warnings.filterwarnings('ignore')
 
-
+# 时间序列预测模型主程序
 class Exp_Long_Term_Forecast(Exp_Basic):
     def __init__(self, args):
         super(Exp_Long_Term_Forecast, self).__init__(args)
 
     def _build_model(self):
-        model = self.model_dict[self.args.model].Model(self.args).float()
+        model = self.model_dict[self.args.model].Model(self.args).float() #默认为float类型
 
         if self.args.use_multi_gpu and self.args.use_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
@@ -35,7 +36,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
     def _select_criterion(self):
         criterion = nn.MSELoss()
         return criterion
-
+    # 验证
     def vali(self, vali_data, vali_loader, criterion):
         total_loss = []
         self.model.eval()
@@ -51,7 +52,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
                 # encoder - decoder
-                if self.args.use_amp:
+                if self.args.use_amp: #cuda的amp半精度计算
                     with torch.cuda.amp.autocast():
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -75,8 +76,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         total_loss = np.average(total_loss)
         self.model.train()
         return total_loss
-
+    # 训练
     def train(self, setting):
+        losses_train = []
+        losses_test = []
+
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
@@ -88,7 +92,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         time_now = time.time()
 
         train_steps = len(train_loader)
-        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
+        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True) #早停函数
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
@@ -157,26 +161,47 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     model_optim.step()
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
-            train_loss = np.average(train_loss)
+            train_loss = np.average(train_loss) #训练损失
             vali_loss = self.vali(vali_data, vali_loader, criterion)
-            test_loss = self.vali(test_data, test_loader, criterion)
+            test_loss = self.vali(test_data, test_loader, criterion) 
+
+            # 方便画图放在列表里存储损失值
+            losses_train.append(train_loss)
+            losses_test.append(test_loss) 
 
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
                 epoch + 1, train_steps, train_loss, vali_loss, test_loss))
+            
+            # 早停函数会给出一个Bool数据，满足条件则停止训练
             early_stopping(vali_loss, self.model, path)
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
-
+            # 调整学习率
             adjust_learning_rate(model_optim, epoch + 1, self.args)
-
+        
+        # 最终模型保存地址
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
+        
+        # 创建文件夹
+        folder_path = './figure/' + setting + '/'
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
 
+        plt.plot(range(len(losses_train)), losses_train, label='Train Loss')
+        plt.plot(range(len(losses_test)), losses_test, label='Test Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.title('Training and Test Loss')
+        plt.legend()
+        plt.savefig(folder_path+'figure.png')
         return self.model
-
+    
+    # 测试
     def test(self, setting, test=0):
         test_data, test_loader = self._get_data(flag='test')
+        # 如果不进行训练，则通过加载模型进行测试
         if test:
             print('loading model')
             self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
@@ -233,8 +258,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     if test_data.scale and self.args.inverse:
                         shape = input.shape
                         input = test_data.inverse_transform(input.squeeze(0)).reshape(shape)
-                    gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
-                    pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
+                    gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0) #真实数据
+                    pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0) #预测数据
                     visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
 
         preds = np.array(preds)

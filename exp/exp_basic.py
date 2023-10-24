@@ -7,6 +7,7 @@ from models import Autoformer, Transformer, TimesNet, Nonstationary_Transformer,
 class Exp_Basic(object):
     def __init__(self, args):
         self.args = args
+        # 模型字典放在这里
         self.model_dict = {
             'TimesNet': TimesNet,
             'Autoformer': Autoformer,

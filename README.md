@@ -1,7 +1,7 @@
 # 时间序列仓库
 本代码仓库是一个面向深度学习研究人员的开源库，特别是深度时间序列分析。
 
-我们提供了一个整洁的代码库来评估先进的深度时间序列模型或开发自己的模型，它涵盖了五个主流任务:**long- and short-term forecasting, imputation, anomaly detection, and classification.**
+提供了一个整洁的代码库来评估先进的深度时间序列模型或开发自己的模型，它涵盖了五个主流任务:**long- and short-term forecasting, imputation, anomaly detection, and classification.**
 
 ## 时间序列分析排行榜
 
@@ -81,12 +81,12 @@ pip install -r requirements.txt
 - 在文件夹下创建相应的脚本 `./scripts`.
 
 ## 联络
-如有任何疑问或建议，欢迎联络:
+如有任何疑问或建议，欢迎联络，或者可以提相关的Issues，本人在看见后会尽可能解答
 
 - 原作者：Haixu Wu (wuhx23@mails.tsinghua.edu.cn)
+  - 整理各时间序列相关的源代码
 - 本人: Yinghang Chen ([brainiaccc@foxmail.com]())
-
-或者可以提相关的Issues，在我看见后会尽可能解答
+  - 增加代码中文注释；增加了可接受DataFrame的自定义的Dataloader类；修改源代码中可能存在的数据结构冗余等问题
 
 ## 关于
 

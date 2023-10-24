@@ -2,6 +2,8 @@ import argparse
 import time
 import os
 import torch
+
+# 时间序列的五大任务
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
 from exp.exp_imputation import Exp_Imputation
 from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
@@ -11,12 +13,15 @@ import random
 import numpy as np
 
 if __name__ == '__main__':
+    # 在Vscode这个IDE中偶发性地出现相对路径不正确的错误
+    # os.chdir('your path')
+
     fix_seed = 2023
     random.seed(fix_seed)
     torch.manual_seed(fix_seed)
     np.random.seed(fix_seed)
 
-    parser = argparse.ArgumentParser(description='时间序列仓库')
+    parser = argparse.ArgumentParser(description='时间序列代码库')
 
     # 基础配置
     parser.add_argument('--task_name', type=str, required=True, default='long_term_forecast',
@@ -33,12 +38,13 @@ if __name__ == '__main__':
                         help='预测任务, options:[M, S, MS]; M:多对多, S:单对单, MS:多对单')
     parser.add_argument('--target', type=str, default='OT', help='S或MS中DataFrame的目标列,若为M则可随便填写')
     parser.add_argument('--freq', type=str, default='h',
-                        help='时间戳编码的频率, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], 同样的你可以采取15min或3h这种方式表示频率')
+                        help='时间戳编码的频率, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], \
+                              同样的你可以采取15min或3h这种方式表示频率。注意, 如果为d的时候time类型会转为[a,b,c]的形式, 这在采用Embedding的时候会出错')
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='模型检查点位置')
 
     # forecasting task(预测任务配置这里)
     parser.add_argument('--seq_len', type=int, default=96, help='encoder输入序列长度')
-    parser.add_argument('--label_len', type=int, default=48, help='start token length')
+    parser.add_argument('--label_len', type=int, default=48, help='Encoder和Decoder共有部分的长度')
     parser.add_argument('--pred_len', type=int, default=96, help='预测长度')
     parser.add_argument('--seasonal_patterns', type=str, default='Monthly', help='subset for M4(只针对季节性数据集)')
     parser.add_argument('--inverse', action='store_true', help='逆归一化输出结果', default=False)
@@ -52,9 +58,9 @@ if __name__ == '__main__':
     # 模型定义
     parser.add_argument('--top_k', type=int, default=5, help='for TimesBlock')
     parser.add_argument('--num_kernels', type=int, default=6, help='for Inception')
-    parser.add_argument('--enc_in', type=int, default=7, help='encoder输入维度') #
+    parser.add_argument('--enc_in', type=int, default=7, help='encoder输入维度')
     parser.add_argument('--dec_in', type=int, default=7, help='decoder输入维度')
-    parser.add_argument('--c_out', type=int, default=1, help='输出维度')
+    parser.add_argument('--c_out', type=int, default=1, help='预测数据输出维度')
     parser.add_argument('--d_model', type=int, default=512, help='升维到多少维度')
     parser.add_argument('--n_heads', type=int, default=8, help='多头注意力的头数')
     parser.add_argument('--e_layers', type=int, default=2, help='encoder层数')
@@ -65,7 +71,7 @@ if __name__ == '__main__':
     parser.add_argument('--distil', action='store_false',
                         help='whether to use distilling in encoder, using this argument means not using distilling',
                         default=True)
-    parser.add_argument('--dropout', type=float, default=0.1, help='dropout率')
+    parser.add_argument('--dropout', type=float, default=0.1, help='dropout比率')
     parser.add_argument('--embed', type=str, default='timeF',
                         help='时间特征编码方式, options:[timeF, fixed, learned]')
     parser.add_argument('--activation', type=str, default='gelu', help='激活函数选择')
@@ -94,7 +100,7 @@ if __name__ == '__main__':
                         help='hidden layer dimensions of projector (List)')
     parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
 
-
+    # cuda
     args = parser.parse_args()
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
@@ -104,9 +110,11 @@ if __name__ == '__main__':
         args.device_ids = [int(id_) for id_ in device_ids]
         args.gpu = args.device_ids[0]
 
+    # 打印总的参数
     print('Args in experiment:')
     print(args)
 
+    # 根据任务不同选择做不同的选择
     if args.task_name == 'long_term_forecast':
         Exp = Exp_Long_Term_Forecast
     elif args.task_name == 'short_term_forecast':
@@ -120,6 +128,7 @@ if __name__ == '__main__':
     else:
         Exp = Exp_Long_Term_Forecast
 
+    # 如果需要训练，则先进行训练，然后test;如果不需要训练，则从保存模型的地址加载模型参数model.load_state_dict
     if args.is_training:
         for ii in range(args.itr):
             # setting record of experiments
