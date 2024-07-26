@@ -14,7 +14,7 @@ import numpy as np
 
 if __name__ == '__main__':
     # 在Vscode这个IDE中偶发性地出现相对路径不正确的错误
-    # os.chdir('your path')
+    os.chdir('your path')
 
     fix_seed = 2023
     random.seed(fix_seed)
@@ -183,5 +183,4 @@ if __name__ == '__main__':
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
         exp.test(setting, test=1)
         torch.cuda.empty_cache()
-    end_ = time.time()
 
